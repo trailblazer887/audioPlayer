@@ -72,6 +72,21 @@ MainWindow::MainWindow(QWidget *parent) :
             on_nextSongBtn_clicked();
         }
     });
+
+    // 创建命令行输入框（隐藏）
+    commandLine = new QLineEdit(this);
+    commandLine->setFont(QFont("Consolas", 12));
+    commandLine->setStyleSheet("background-color: black; color: white; border: 1px solid gray;");
+    commandLine->setGeometry(10, 10, 300, 30); // 左上角固定位置
+    commandLine->hide();
+    connect(commandLine, &QLineEdit::returnPressed, this, [this]() {
+        processCommand(commandLine->text());
+        commandLine->clear();
+        commandLine->hide();
+    });
+
+    // 延迟初始化标记条（确保 progressSlider 布局完成）
+    QTimer::singleShot(0, this, &MainWindow::initMarkerBar);
 }
 
 MainWindow::~MainWindow()
@@ -193,6 +208,49 @@ void MainWindow::on_nextSongBtn_clicked()
 
 // 事件处理 Filter
 bool MainWindow::eventFilter(QObject *obj, QEvent *event){
+    // 命令行可见时：只处理 Esc 隐藏，其余放行
+    if (commandLine && commandLine->isVisible()) {
+        if (event->type() == QEvent::KeyPress) {
+        QKeyEvent *k = static_cast<QKeyEvent*>(event);
+        if (k->key() == Qt::Key_Escape) {
+            commandLine->hide();
+            return true;
+        }
+        }
+        // 其他事件不拦截，让命令行正常输入
+        return QMainWindow::eventFilter(obj, event);
+    }
+
+    // 唤起命令行的快捷键
+    if (event->type() == QEvent::KeyPress) {
+        QKeyEvent *k = static_cast<QKeyEvent*>(event);
+        if (k->key() == Qt::Key_Colon) {  // Shift + ; 即 ':'
+            if (commandLine) {
+                commandLine->show();
+                commandLine->setFocus();
+            }
+            return true;
+        }
+    }
+
+    // 标记箭头点击跳转
+    if (event->type() == QEvent::MouseButtonPress) {
+        QLabel *arrow = qobject_cast<QLabel*>(obj);
+        if (arrow && arrow->parent() == markerBar) {
+        bool ok;
+        int idx = arrow->property("markerIndex").toInt(&ok);
+        if (ok && idx >= 0 && idx < markers.size()) {
+            qint64 pos = markers[idx].pos;
+            player->setPosition(pos);
+            // 同步进度条和标签（updateProgressBar 会刷新，但为了即时反馈可主动调用）
+            if (player->duration() > 0) {
+            int sliderVal = (int)(pos * 1000 / player->duration());
+            ui->progressSlider->setValue(sliderVal);
+            }
+        }
+        return true;
+        }
+    }
     // 点击进度条轨道直接跳转
     if (obj == ui->progressSlider && event->type() == QEvent::MouseButtonPress) {
         QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
@@ -277,3 +335,100 @@ void MainWindow::on_autoNextBtn_clicked(){
     }
 }
 
+// 实现标记容器初始化函数
+void MainWindow::initMarkerBar()
+{
+    if (!ui->progressSlider || !ui->progressSlider->isVisible()) return;
+
+    QPoint topLeft = ui->progressSlider->mapTo(this, QPoint(0, 0));
+    QSize size = ui->progressSlider->size();
+    if (size.width() <= 0 || size.height() <= 0) return;
+
+    int barHeight = 20;
+    markerBar = new QWidget(this);
+    markerBar->setStyleSheet("background: transparent;");
+    markerBar->setGeometry(topLeft.x(), topLeft.y() - barHeight, size.width(), barHeight);
+    markerBar->show();
+}
+// 重建标记可视化
+void MainWindow::rebuildMarkers()
+{
+
+    if (!markerBar) return;
+
+    // 清除旧标记
+    qDeleteAll(markerBar->findChildren<QLabel*>());
+
+    if (!markerBar->isVisible() || markerBar->width() <= 0) return; // 严谨检查
+    if (player->duration() <= 0) return;
+
+    int barWidth = markerBar->width();
+    for (int i = 0; i < markers.size(); ++i) {
+        const Marker &m = markers[i];
+        double ratio = (double)m.pos / player->duration();
+        int x = (int)(ratio * barWidth);
+
+        QLabel *arrow = new QLabel("▼", markerBar);
+        arrow->setStyleSheet("color: red; font-size: 14px; background: transparent;");
+        arrow->setToolTip(m.label);
+        arrow->setAlignment(Qt::AlignCenter);
+        arrow->setFixedSize(20, markerBar->height());
+        arrow->move(x - 10, 0); // 箭头居中
+        arrow->setProperty("markerIndex", i); // 记录索引
+        arrow->installEventFilter(this);      // 监听点击
+        arrow->show();
+    }
+}
+
+// 添加标记的实现
+void MainWindow::addMarker(const QString &label)
+{
+    if (player->duration() <= 0) return; // 没有歌曲时不添加
+
+    qint64 pos = player->position();
+    // 按时间顺序插入
+    int insertIdx = 0;
+    for (; insertIdx < markers.size(); ++insertIdx) {
+        if (pos < markers[insertIdx].pos) break;
+    }
+    markers.insert(insertIdx, {pos, label});
+    rebuildMarkers();
+}
+
+// 删除标记的实现
+void MainWindow::delMarker(int id)
+{
+    if (id < 1 || id > markers.size()) return;
+    markers.removeAt(id - 1);
+    rebuildMarkers();
+}
+
+//命令行处理
+void MainWindow::processCommand(const QString &text)
+{
+    QString trimmed = text.trimmed();
+    if (trimmed.startsWith("set ", Qt::CaseInsensitive)) {
+        QString label = trimmed.mid(4).trimmed();
+        if (!label.isEmpty()) {
+            addMarker(label);
+        }
+    }else if (trimmed.startsWith("del ", Qt::CaseInsensitive)) {
+        QString arg = trimmed.mid(4).trimmed();
+        bool ok;
+        int id = arg.toInt(&ok);
+        if (ok) {
+            // 按标识符删除
+            delMarker(id);
+        }else {
+            for (int i = 0; i < markers.size(); ++i) {
+                if (markers[i].label == arg) {
+                    delMarker(i + 1);          // 按标签删除（标识符从1开始）
+                    break;
+                }
+            }
+        }
+    }else if (trimmed.compare("clear", Qt::CaseInsensitive) == 0) {
+        markers.clear();
+        rebuildMarkers();
+    }
+}

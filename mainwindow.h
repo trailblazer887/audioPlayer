@@ -9,6 +9,7 @@
 #include <QUrl>
 #include <QMessageBox>
 #include <QObject>
+#include <QLineEdit>
 
 // 前向声明歌库窗口（避免循环包含）
 class SongLibraryWindow;
@@ -36,6 +37,12 @@ private slots:
     void on_nextSongBtn_clicked();        // 下一曲（手动）
     void on_autoNextBtn_clicked();        // 是否自动切换
     void handleSongSelected(const QList<QUrl> &newSongList, int selectedIndex); // 处理选中歌曲
+    // 标记辅助函数
+    void initMarkerBar();                            // 初始化标记容器
+    void rebuildMarkers();                           // 重建所有标记可视化
+    void addMarker(const QString &label);            // 添加标记
+    void delMarker(int id);                          // 删除标记（id 从1开始）
+    void processCommand(const QString &text);        // 处理命令行输入
 
 private:
     Ui::MainWindow *ui;                 // 主窗口UI指针
@@ -50,6 +57,15 @@ private:
     bool autoNextEnabled;               // 是否启用自动切换下一曲
     QLabel *timePlayedLabel;  // 已播放时间标签
     QLabel *timeTotalLabel;   // 总时间标签
+
+    // 标记系统
+    QLineEdit *commandLine;                          // 命令行输入框
+    QWidget *markerBar;                              // 进度条上方的标记容器
+    struct Marker {
+        qint64 pos;                                  // 标记位置（毫秒）
+        QString label;                               // 标记标签
+    };
+    QList<Marker> markers;                           // 所有标记（按时间升序）
 
 protected:
     bool eventFilter(QObject *obj, QEvent *event) override; // 过滤器
