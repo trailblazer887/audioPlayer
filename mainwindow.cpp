@@ -117,7 +117,7 @@ void MainWindow::on_playPauseBtn_clicked()
         player->pause();
     } else {
         player->play();
-        updateNowPlayingLabel();
+        updateNowPlayingLabel(); // 加载标签
     }
 }
 
@@ -196,7 +196,7 @@ void MainWindow::handleSongSelected(const QList<QUrl> &newSongList, int selected
 
     ui->prevSongBtn->setEnabled(!songList.isEmpty()); // 上/下一曲按钮激活
     ui->nextSongBtn->setEnabled(!songList.isEmpty());
-    updateNowPlayingLabel();
+    updateNowPlayingLabel(); // 更新"当前播放标签"
 }
 
 // 手动上一曲
@@ -207,7 +207,7 @@ void MainWindow::on_prevSongBtn_clicked()
     currentSongIndex = (currentSongIndex - 1 + songList.size()) % songList.size();
     player->setSource(songList[currentSongIndex]);
     player->play();
-    updateNowPlayingLabel();
+    updateNowPlayingLabel(); // 加载标签
 }
 
 // 手动下一曲
@@ -218,7 +218,7 @@ void MainWindow::on_nextSongBtn_clicked()
     currentSongIndex = (currentSongIndex + 1 + songList.size()) % songList.size();
     player->setSource(songList[currentSongIndex]);
     player->play();
-    updateNowPlayingLabel();
+    updateNowPlayingLabel(); // 加载标签
 }
 
 
@@ -240,7 +240,7 @@ bool MainWindow::eventFilter(QObject *obj, QEvent *event){
     // 唤起命令行的快捷键
     if (event->type() == QEvent::KeyPress) {
         QKeyEvent *k = static_cast<QKeyEvent*>(event);
-        if (k->key() == Qt::Key_Colon) {  // Shift + ; 即 ':'
+        if (k->key() == Qt::Key_Colon) {  // Shift + ;即 ':'
             if (commandLine) {
                 commandLine->show();
                 commandLine->setFocus();
@@ -449,6 +449,7 @@ void MainWindow::processCommand(const QString &text)
     }
 }
 
+// 更新"当前播放:"标签
 void MainWindow::updateNowPlayingLabel()
 {
     if (currentSongIndex >= 0 && currentSongIndex < songList.size()) {
