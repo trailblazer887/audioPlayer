@@ -407,12 +407,12 @@ void MainWindow::delMarker(int id)
 void MainWindow::processCommand(const QString &text)
 {
     QString trimmed = text.trimmed();
-    if (trimmed.startsWith("set ", Qt::CaseInsensitive)) {
+    if (trimmed.startsWith("set ", Qt::CaseInsensitive)) { // set
         QString label = trimmed.mid(4).trimmed();
         if (!label.isEmpty()) {
             addMarker(label);
         }
-    }else if (trimmed.startsWith("del ", Qt::CaseInsensitive)) {
+    }else if (trimmed.startsWith("del ", Qt::CaseInsensitive)) { // del
         QString arg = trimmed.mid(4).trimmed();
         bool ok;
         int id = arg.toInt(&ok);
@@ -427,7 +427,7 @@ void MainWindow::processCommand(const QString &text)
                 }
             }
         }
-    }else if (trimmed.compare("clear", Qt::CaseInsensitive) == 0) {
+    }else if (trimmed.compare("clear", Qt::CaseInsensitive) == 0) { // clear
         markers.clear();
         rebuildMarkers();
     }
