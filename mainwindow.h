@@ -43,6 +43,7 @@ private slots:
     void addMarker(const QString &label);            // 添加标记
     void delMarker(int id);                          // 删除标记（id 从1开始）
     void processCommand(const QString &text);        // 处理命令行输入
+    void updateNowPlayingLabel();           // 更新标签文字
 
 private:
     Ui::MainWindow *ui;                 // 主窗口UI指针
@@ -66,6 +67,7 @@ private:
         QString label;                               // 标记标签
     };
     QList<Marker> markers;                           // 所有标记（按时间升序）
+    QLabel *nowPlayingLabel;                // 顶部居中显示当前播放文件名
 
 protected:
     bool eventFilter(QObject *obj, QEvent *event) override; // 过滤器

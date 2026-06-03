@@ -6,6 +6,8 @@
 #include <QStyle>
 #include <QStyleOption>
 #include <QLabel>
+#include <QFileInfo>
+#include <QVBoxLayout>
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -16,6 +18,15 @@ MainWindow::MainWindow(QWidget *parent) :
     autoNextEnabled(true)
 {
     ui->setupUi(this); // 加载主窗口UI
+    // 创建“当前播放”标签，置于顶部居中
+    nowPlayingLabel = new QLabel("当前播放：\n", this);
+    nowPlayingLabel->setAlignment(Qt::AlignCenter);
+    nowPlayingLabel->setStyleSheet("color: white; font-size: 14px;");
+    nowPlayingLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
+    nowPlayingLabel->setGeometry(0, 10, width(), 40);
+
+
+
     this->setFixedSize(847, 558); // 固定窗口大小，禁止拉伸
     // 创建时间显示标签
     timePlayedLabel = new QLabel("00:00", this);
@@ -62,6 +73,7 @@ MainWindow::MainWindow(QWidget *parent) :
             if (state == QMediaPlayer::StoppedState) {
                 progressTimer->stop();
                 ui->progressSlider->setValue(0);
+                nowPlayingLabel->setText("当前播放：\n");
             }
         }
     });
@@ -105,6 +117,7 @@ void MainWindow::on_playPauseBtn_clicked()
         player->pause();
     } else {
         player->play();
+        updateNowPlayingLabel();
     }
 }
 
@@ -183,6 +196,7 @@ void MainWindow::handleSongSelected(const QList<QUrl> &newSongList, int selected
 
     ui->prevSongBtn->setEnabled(!songList.isEmpty()); // 上/下一曲按钮激活
     ui->nextSongBtn->setEnabled(!songList.isEmpty());
+    updateNowPlayingLabel();
 }
 
 // 手动上一曲
@@ -193,6 +207,7 @@ void MainWindow::on_prevSongBtn_clicked()
     currentSongIndex = (currentSongIndex - 1 + songList.size()) % songList.size();
     player->setSource(songList[currentSongIndex]);
     player->play();
+    updateNowPlayingLabel();
 }
 
 // 手动下一曲
@@ -203,6 +218,7 @@ void MainWindow::on_nextSongBtn_clicked()
     currentSongIndex = (currentSongIndex + 1 + songList.size()) % songList.size();
     player->setSource(songList[currentSongIndex]);
     player->play();
+    updateNowPlayingLabel();
 }
 
 
@@ -430,5 +446,20 @@ void MainWindow::processCommand(const QString &text)
     }else if (trimmed.compare("clear", Qt::CaseInsensitive) == 0) { // clear
         markers.clear();
         rebuildMarkers();
+    }
+}
+
+void MainWindow::updateNowPlayingLabel()
+{
+    if (currentSongIndex >= 0 && currentSongIndex < songList.size()) {
+        QString filePath = player->source().toLocalFile();
+        if (filePath.isEmpty()) {
+            filePath = player->source().toString();
+        }
+        QFileInfo fi(filePath);
+        QString name = fi.completeBaseName(); // 去掉后缀的文件名
+        nowPlayingLabel->setText("当前播放：\n" + name);
+    } else {
+        nowPlayingLabel->setText("当前播放：\n");
     }
 }
